@@ -74,7 +74,7 @@ const AuthModal: React.FC<AuthModalProps> = ({ open, onSuccess }) => {
       footer={null}
       closable={false}
       width={360}
-      style={{ top: '10%' }} // 添加这一行
+      style={{ top: '12%' }} // 添加这一行
       onCancel={() => {
         setLoginError(null);
         setRegisterError(null);
