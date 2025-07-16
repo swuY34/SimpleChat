@@ -12,4 +12,8 @@ export default defineConfig({
       include: ['./src/**/*.{ts,tsx,js,jsx,html}'],
     },
   },
+  rules: [
+    ['flex-1', { flex: '1 1 0%' }],
+    ['flex-col', { 'flex-direction': 'column' }],
+  ]
 });

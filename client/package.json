@@ -11,6 +11,7 @@
     "publish": "electron-forge publish",
     "lint": "eslint --ext .ts,.tsx ."
   },
+  "proxy": "http://localhost:8888",
   "keywords": [],
   "author": "swuY",
   "license": "MIT",
@@ -34,6 +35,7 @@
     "@typescript-eslint/parser": "^5.62.0",
     "@unocss/webpack": "^66.3.3",
     "@vercel/webpack-asset-relocator-loader": "^1.7.3",
+    "axios": "^1.10.0",
     "babel-loader": "^10.0.0",
     "css-loader": "^6.11.0",
     "electron": "37.2.0",
@@ -41,6 +43,7 @@
     "eslint-plugin-import": "^2.32.0",
     "fork-ts-checker-webpack-plugin": "^7.3.0",
     "node-loader": "^2.1.0",
+    "react-router-dom": "^7.6.3",
     "style-loader": "^3.3.4",
     "ts-loader": "^9.5.2",
     "ts-node": "^10.9.2",

@@ -1,6 +1,5 @@
 // src/preload.ts
 import { contextBridge, ipcRenderer, IpcRendererEvent } from 'electron';
-import { readFileSync } from 'fs';
 
 // 类型安全的 API 暴露
 export type ElectronAPI = {
@@ -8,27 +7,31 @@ export type ElectronAPI = {
   onReply: (callback: (event: IpcRendererEvent, reply: string) => void) => void;
   readFile: (path: string) => Promise<string>;
   getPlatform: () => NodeJS.Platform;
+
+  windowControl: (action: 'close') => void;  // ✅ 只保留 close
 };
 
+// 实现 API
 const api: ElectronAPI = {
   sendMessage: (message) => ipcRenderer.send('message', message),
-  
+
   onReply: (callback) => {
-    // 注意类型转换
-    ipcRenderer.on('reply', (event: IpcRendererEvent, ...args: [string]) => 
-      callback(event, args[0])
-    );
+    ipcRenderer.on('reply', (event, ...args) => callback(event, args[0]));
   },
 
   readFile: (path) => ipcRenderer.invoke('read-file', path),
 
-  getPlatform: () => process.platform
+  getPlatform: () => process.platform,
+
+  windowControl: (action) => {
+    ipcRenderer.send('window-control', action); // 只允许传 'close'
+  },
 };
 
-// 安全暴露 API
+// 安全暴露到渲染进程
 contextBridge.exposeInMainWorld('electronAPI', api);
 
-// 错误处理
+// 错误处理（防止未处理的 promise 被吞掉）
 process.on('unhandledRejection', (error: Error) => {
   console.error('Preload Error:', error);
 });

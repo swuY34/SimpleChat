@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Layout, Button, theme, Avatar, Dropdown } from 'antd';
+import React, { useState, useEffect } from 'react';
+import { Layout, Button, theme, Avatar, Dropdown, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   MenuFoldOutlined,
@@ -7,71 +7,104 @@ import {
   UserOutlined,
   LogoutOutlined,
   SettingOutlined,
+  PoweroffOutlined,
 } from '@ant-design/icons';
 import Sidebar from '../Sidebar';
+import { userApi } from '../../api/userApi';
+import { clearToken } from '../../utils/token';
 
 const { Header, Content } = Layout;
 
-const userMenuItems: MenuProps['items'] = [
-  {
-    key: '1',
-    icon: <UserOutlined />,
-    label: 'Profile',
-  },
-  {
-    key: '2',
-    icon: <SettingOutlined />,
-    label: 'Settings',
-  },
-  {
-    type: 'divider',
-  },
-  {
-    key: '3',
-    icon: <LogoutOutlined />,
-    label: 'Logout',
-  },
-];
+interface AppLayoutProps {
+  children: React.ReactNode;
+  channelName: string;
+  onChannelChange: (name: string) => void;
+  username: string;
+  onLogout: () => void;
+}
 
-const AppLayout: React.FC<{ children: React.ReactNode }> = ({ children }) => {
+const AppLayout: React.FC<AppLayoutProps> = ({ 
+  children, 
+  channelName, 
+  onChannelChange,
+  username,
+  onLogout
+}) => {
   const [collapsed, setCollapsed] = useState(false);
   const {
     token: { colorBgContainer },
   } = theme.useToken();
 
+  const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
+    if (key === 'logout') {
+      onLogout();
+    }
+
+    if (key === 'exit') {
+      window.electronAPI?.windowControl?.('close');
+    }
+  };
+
+  const userMenuItems: MenuProps['items'] = [
+    {
+      key: '1',
+      icon: <UserOutlined />,
+      label: 'Profile',
+    },
+    {
+      key: '2',
+      icon: <SettingOutlined />,
+      label: 'Settings',
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'logout',
+      icon: <LogoutOutlined />,
+      label: 'Logout',
+    },
+    {
+      type: 'divider',
+    },
+    {
+      key: 'exit',
+      icon: <PoweroffOutlined />,
+      label: 'Exit',
+    },
+  ];
+
   return (
-    <Layout hasSider className="h-screen">
-      <Sidebar collapsed={collapsed} />
-      
+    <Layout hasSider className="h-screen overflow-visible">
+      <Sidebar collapsed={collapsed} onChannelChange={onChannelChange} />
+
       <Layout>
         <Header
-          style={{ 
+          style={{
             background: colorBgContainer,
-            padding: 0, // 清除默认padding
+            padding: 0,
           }}
-          className="flex items-center border-b"
+          className="drag-region flex items-center border-b"
         >
           <Button
             type="text"
             icon={collapsed ? <MenuUnfoldOutlined /> : <MenuFoldOutlined />}
             onClick={() => setCollapsed(!collapsed)}
-            className="w-16 h-16"
+            className="!w-13 h-16"
           />
-          <span className="text-lg font-semibold">频道管理系统</span>
-          
-          <div className="ml-auto pr-4">
-            <Dropdown menu={{ items: userMenuItems }} placement="bottomRight">
+          <span className="text-lg font-semibold">{channelName}</span>
+
+          <div className="ml-auto pr-4 mr-6">
+            <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} placement="bottomRight">
               <div className="flex items-center cursor-pointer">
                 <Avatar icon={<UserOutlined />} className="mr-2" />
-                {!collapsed && <span className="font-medium">John Doe</span>}
+                {!collapsed && <span className="font-medium">{username}</span>}
               </div>
             </Dropdown>
           </div>
         </Header>
 
-        <Content className="m-4 p-6 bg-white rounded-lg min-h-[calc(100vh-64px-32px)]">
-          {children}
-        </Content>
+        <Content className="flex-1 m-4 p-6 bg-white rounded-lg overflow-auto">{children}</Content>
       </Layout>
     </Layout>
   );

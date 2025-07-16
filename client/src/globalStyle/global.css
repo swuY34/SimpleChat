@@ -1,0 +1,49 @@
+/* global.css */
+.ant-menu-submenu-popup > ul.ant-menu-sub {
+    max-height: 70vh !important;
+}
+
+.ant-layout-sider-children {
+    display: flex;
+    flex-direction: column;
+}
+
+.channel-list > ul, .channel-list > ul > li {
+    height: 100% !important;
+}
+
+.channel-list > ul > li {
+    display: flex;
+    flex-direction: column;
+}
+
+.channel-list .ant-menu.ant-menu-sub {
+    overflow: auto !important;
+}
+
+
+/* global.css */
+textarea::-webkit-scrollbar {
+  width: 6px;
+}
+
+textarea::-webkit-scrollbar-thumb {
+  background-color: #aaa;
+  border-radius: 10px;
+}
+
+textarea::-webkit-scrollbar-track {
+  background-color: transparent;
+}
+
+
+
+.drag-region {
+  -webkit-app-region: drag;  /* 允许拖拽 */
+}
+
+.drag-region > * {
+  -webkit-app-region: no-drag;  /* 允许拖拽 */
+}
+
+
