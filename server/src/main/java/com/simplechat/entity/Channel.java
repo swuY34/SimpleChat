@@ -12,7 +12,6 @@ import java.util.Set;
 public class Channel {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
     @Column(columnDefinition = "CHAR(36)", updatable = false)
     private String channelId;
 
@@ -29,13 +28,13 @@ public class Channel {
     private LocalDateTime lastMessageTime;
 
     @OneToMany(mappedBy = "channel", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<ChannelMember> members = new HashSet<>();
-
-    @OneToMany(mappedBy = "channel", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Message> messages = new HashSet<>();
 
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
     }
+
+    @Version
+    private Long version;  // Hibernate会自动管理此字段
 }

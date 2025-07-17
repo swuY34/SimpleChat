@@ -2,12 +2,17 @@ package com.simplechat.controller;
 
 import com.simplechat.entity.*;
 import com.simplechat.repository.*;
+import jakarta.persistence.EntityManager;
+import jakarta.persistence.PersistenceContext;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.orm.ObjectOptimisticLockingFailureException;
+import org.springframework.retry.annotation.Backoff;
+import org.springframework.retry.annotation.Retryable;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
 import java.nio.charset.StandardCharsets;
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
 @RestController
@@ -18,6 +23,9 @@ public class ChannelController {
     private final UserRepository userRepository;
     private final ChannelMemberRepository channelMemberRepository;
     private final MessageRepository messageRepository;
+
+    @PersistenceContext
+    private EntityManager entityManager;
 
     @Autowired
     public ChannelController(ChannelRepository channelRepository,
@@ -32,42 +40,64 @@ public class ChannelController {
 
     // ✅ 加入频道，如果不存在就创建（channelName -> UUID）
     @PostMapping("/join")
+    @Transactional
+    @Retryable(value = ObjectOptimisticLockingFailureException.class,
+            maxAttempts = 3,
+            backoff = @Backoff(delay = 100))
     public Channel joinOrCreateChannel(@RequestBody JoinRequest request) {
-        User user = userRepository.findById(request.getUserId()).orElseThrow(() ->
-                new IllegalArgumentException("用户不存在"));
+        // 确保用户存在
+        User user = userRepository.findById(request.getUserId())
+                .orElseThrow(() -> new IllegalArgumentException("用户不存在"));
 
         String channelName = request.getChannelName();
         UUID channelUUID = UUID.nameUUIDFromBytes(channelName.getBytes(StandardCharsets.UTF_8));
         String channelId = channelUUID.toString();
 
-        Optional<Channel> optionalChannel = channelRepository.findById(channelId);
-        Channel channel;
+        // 使用更可靠的查找方式
+        Channel channel = findOrCreateChannel(channelId, channelName, user);
 
-        if (optionalChannel.isEmpty()) {
+        // 确保用户加入频道
+        ensureUserJoinedChannel(user, channel);
+
+        return channel;
+    }
+
+    // 查找或创建频道（使用悲观锁）
+    private Channel findOrCreateChannel(String channelId, String channelName, User user) {
+        // 尝试获取悲观锁
+        Channel channel = entityManager.find(Channel.class, channelId,
+                jakarta.persistence.LockModeType.PESSIMISTIC_WRITE);
+
+        if (channel == null) {
+            // 创建新频道 - 不要设置version字段
             channel = new Channel();
             channel.setChannelId(channelId);
             channel.setChannelName(channelName);
             channel.setCreatedBy(user);
+
+            // 使用 repository 保存
             channel = channelRepository.save(channel);
-        } else {
-            channel = optionalChannel.get();
         }
 
-        boolean alreadyJoined = channelMemberRepository.existsByUserAndChannel(user, channel);
-        if (!alreadyJoined) {
+        channel.setCreatedBy(null);
+
+        return channel;
+    }
+
+    // 确保用户加入频道
+    private void ensureUserJoinedChannel(User user, Channel channel) {
+        ChannelMemberId id = new ChannelMemberId();
+        id.setUserId(user.getUserId());
+        id.setChannelId(channel.getChannelId());
+
+        if (!channelMemberRepository.existsById(id)) {
             ChannelMember member = new ChannelMember();
             member.setUser(user);
             member.setChannel(channel);
-
-            ChannelMemberId id = new ChannelMemberId();
-            id.setUserId(user.getUserId());
-            id.setChannelId(channel.getChannelId());
             member.setId(id);
 
             channelMemberRepository.save(member);
         }
-
-        return channel;
     }
 
     // ✅ 退出频道
@@ -92,6 +122,7 @@ public class ChannelController {
 
     // ✅ 删除频道（包括成员 + 消息）
     @DeleteMapping("/{channelId}")
+    @Transactional
     public String deleteChannel(@PathVariable String channelId) {
         Channel channel = channelRepository.findById(channelId)
                 .orElseThrow(() -> new IllegalArgumentException("频道不存在"));

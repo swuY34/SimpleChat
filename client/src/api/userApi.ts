@@ -1,5 +1,7 @@
 import axios, { AxiosResponse } from 'axios';
+import { API_BASE_URL } from '../config/config';
 
+// 请求数据和返回数据的接口定义
 interface RegisterRequest {
   username: string;
   email: string;
@@ -21,17 +23,24 @@ interface User {
   userId: string;
   username: string;
   email: string;
-  // 其他字段按需补充
+  createdAt: string;
+  channelMembers: any[];  // 根据实际情况填写类型
+  sentMessages: any[];    // 根据实际情况填写类型
+  version: number;
+}
+
+interface UserResponse {
+  success: boolean;
+  user: User;  // 假设返回的字段是 user
 }
 
 // 创建 axios 实例，带 token 拦截器
 const apiClient = axios.create({
-  baseURL: 'http://localhost:8888/',
+  baseURL: `${API_BASE_URL}/users`,
 });
 
 // 请求拦截器，自动在请求头加上 token
 apiClient.interceptors.request.use((config) => {
-  // 使用正确的键名 'auth_token'
   const token = localStorage.getItem('auth_token');
   if (token && config.headers) {
     config.headers.Authorization = `Bearer ${token}`;
@@ -39,17 +48,15 @@ apiClient.interceptors.request.use((config) => {
   return config;
 });
 
-// 添加响应拦截器以捕获错误详情 - 优化提取错误消息
+// 添加响应拦截器以捕获错误详情
 apiClient.interceptors.response.use(
-  response => response,
-  error => {
-    // 提取错误信息
+  (response) => response,
+  (error) => {
     let errorMessage = '请求失败';
-    
+
     if (error.response) {
-      // 优先尝试从后端返回的JSON数据中提取message字段
+      // 优先尝试从后端返回的 JSON 数据中提取 message 字段
       if (error.response.data && typeof error.response.data === 'object') {
-        // 尝试提取后端返回的错误消息
         if (error.response.data.message) {
           errorMessage = error.response.data.message;
         } else if (error.response.data.error) {
@@ -76,29 +83,30 @@ apiClient.interceptors.response.use(
     } else if (error.request) {
       errorMessage = '无法连接到服务器';
     }
-    
-    // 返回包含错误信息的自定义错误
+
+    // 返回自定义错误信息
     return Promise.reject(new Error(errorMessage));
   }
 );
 
+// API 封装
 export const userApi = {
   register: (data: RegisterRequest): Promise<AxiosResponse<User>> =>
-    apiClient.post<User>('/api/users/register', {
+    apiClient.post<User>('/register', {
       username: data.username,
       email: data.email,
       password: data.password,
     }),
 
   login: (data: LoginRequest): Promise<AxiosResponse<{ token: string; user: User }>> =>
-    apiClient.post<{ token: string; user: User }>('/api/users/login', data),
+    apiClient.post<{ token: string; user: User }>('/login', data),
 
   changePassword: (data: ChangePasswordRequest): Promise<AxiosResponse<string>> =>
-    apiClient.post<string>('/api/users/change-password', data),
+    apiClient.post<string>('/change-password', data),
 
   getUserById: (userId: string): Promise<AxiosResponse<User>> =>
-    apiClient.get<User>(`/api/users/${userId}`),
+    apiClient.get<User>(`/${userId}`),
 
-  getCurrentUser: (): Promise<AxiosResponse<User>> =>
-    apiClient.get<User>('/api/users/me'),
+  getCurrentUser: (): Promise<AxiosResponse<UserResponse>> =>
+    apiClient.get<UserResponse>('/me'),
 };

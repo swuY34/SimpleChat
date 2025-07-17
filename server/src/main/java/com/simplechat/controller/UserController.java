@@ -105,6 +105,7 @@ public class UserController {
 
         User user = optionalUser.get();
         user.setPasswordHash(null);
+        user.setEmail(null);
         return ResponseEntity.ok(Map.of("success", true, "user", user));
     }
 

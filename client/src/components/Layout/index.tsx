@@ -1,3 +1,4 @@
+// AppLayout.tsx
 import React, { useState, useEffect } from 'react';
 import { Layout, Button, theme, Avatar, Dropdown, message } from 'antd';
 import type { MenuProps } from 'antd';
@@ -11,7 +12,7 @@ import {
 } from '@ant-design/icons';
 import Sidebar from '../Sidebar';
 import { userApi } from '../../api/userApi';
-import { clearToken } from '../../utils/token';
+import { getToken, clearToken } from '../../utils/token';
 
 const { Header, Content } = Layout;
 
@@ -23,24 +24,59 @@ interface AppLayoutProps {
   onLogout: () => void;
 }
 
-const AppLayout: React.FC<AppLayoutProps> = ({ 
-  children, 
-  channelName, 
+const AppLayout: React.FC<AppLayoutProps> = ({
+  children,
+  channelName,
   onChannelChange,
   username,
-  onLogout
+  onLogout,
 }) => {
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null);
   const [collapsed, setCollapsed] = useState(false);
+  const [sidebarKey, setSidebarKey] = useState(0);
+
   const {
-    token: { colorBgContainer },
+    token: { colorBgContainer = '#fff' }, // Fallback to '#fff' if colorBgContainer is undefined
   } = theme.useToken();
+
+  useEffect(() => {
+    async function fetchCurrentUser() {
+      try {
+        const token = getToken();
+        if (!token) {
+          setCurrentUserId(null);
+          return;
+        }
+
+        const { data } = await userApi.getCurrentUser();
+        if (data?.user?.userId) {
+          setCurrentUserId(data.user.userId);
+        } else {
+          setCurrentUserId(null);
+          message.error('获取用户信息失败');
+        }
+      } catch (error) {
+        console.error('获取用户信息失败:', error);
+        setCurrentUserId(null);
+        message.error('获取用户信息失败');
+      }
+    }
+
+    fetchCurrentUser();
+  }, [username]);
 
   const handleMenuClick: MenuProps['onClick'] = ({ key }) => {
     if (key === 'logout') {
+      clearToken();
+      setCurrentUserId(null);
+      setSidebarKey(prev => prev + 1);
       onLogout();
     }
 
     if (key === 'exit') {
+      clearToken();
+      setCurrentUserId(null);
+      setSidebarKey(prev => prev + 1);
       window.electronAPI?.windowControl?.('close');
     }
   };
@@ -76,8 +112,12 @@ const AppLayout: React.FC<AppLayoutProps> = ({
 
   return (
     <Layout hasSider className="h-screen overflow-visible">
-      <Sidebar collapsed={collapsed} onChannelChange={onChannelChange} />
-
+      <Sidebar
+        key={sidebarKey}
+        collapsed={collapsed}
+        onChannelChange={onChannelChange}
+        currentUserId={currentUserId}
+      />
       <Layout>
         <Header
           style={{
@@ -93,7 +133,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             className="!w-13 h-16"
           />
           <span className="text-lg font-semibold">{channelName}</span>
-
           <div className="ml-auto pr-4 mr-6">
             <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} placement="bottomRight">
               <div className="flex items-center cursor-pointer">
@@ -103,7 +142,6 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             </Dropdown>
           </div>
         </Header>
-
         <Content className="flex-1 m-4 p-6 bg-white rounded-lg overflow-auto">{children}</Content>
       </Layout>
     </Layout>

@@ -1,20 +1,11 @@
-import React, { 
-  useState, 
-  useEffect, 
-  useRef
-} from 'react';
-import { 
-  Routes, 
-  Route, 
-  useNavigate,  // 添加 useNavigate 钩子
-  Navigate     // 添加 Navigate 组件
-} from 'react-router-dom';
+// App.tsx
+import React, { useState, useEffect } from 'react';
+import { Routes, Route, useNavigate, Navigate } from 'react-router-dom';
 import { Divider, Button, message as antdMessage } from 'antd';
 import MessageBubble from './components/MessageBubble';
 import './globalStyle/global.css';
-
 import { channelApi, MessageDTO } from './api/channelApi';
-import { ChatWebSocket, ChatMessage } from './api/chatApi';
+import { ChatWebSocket } from './api/chatApi';
 import { userApi } from './api/userApi';
 import AuthModal from './components/AuthModal';
 import { getToken, clearToken } from './utils/token';
@@ -28,27 +19,34 @@ const ChatPage = () => {
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [message, setMessage] = useState('');
   const [username, setUsername] = useState<string>('用户');
-  const wsRef = useRef<ChatWebSocket | null>(null);
-  const navigate = useNavigate(); // 使用导航钩子
+  const wsRef = React.useRef<ChatWebSocket | null>(null);
+  const navigate = useNavigate();
 
-  // 获取当前用户信息
   useEffect(() => {
+    const token = getToken();
+    if (!token) {
+      setUsername('用户');
+      navigate('/login');
+      return;
+    }
+
     async function fetchUser() {
       try {
         const res = await userApi.getCurrentUser();
-        setUsername(res.data.username);
+        setUsername(res.data.user.username);
       } catch (err) {
         antdMessage.error('获取用户信息失败');
-        navigate('/login'); // 重定向到登录页
+        navigate('/login');
       }
     }
 
     fetchUser();
   }, [navigate]);
 
-  // 加载频道和消息
   useEffect(() => {
     if (!channelName || channelName === 'SimpleChat') {
+      wsRef.current?.disconnect();
+      wsRef.current = null;
       setChannelId(null);
       setMessages([]);
       return;
@@ -56,7 +54,7 @@ const ChatPage = () => {
 
     async function loadChannel() {
       try {
-        const userId = (await userApi.getCurrentUser()).data.userId;
+        const userId = (await userApi.getCurrentUser()).data.user.userId;
         const { data: userChannels } = await channelApi.getUserChannels(userId);
         const channel = userChannels.find(c => c.channelName === channelName);
 
@@ -67,7 +65,7 @@ const ChatPage = () => {
         }
 
         setChannelId(currentChannelId);
-        await channelApi.joinChannel(currentChannelId, { userId, channelName });
+        await channelApi.joinChannel({ userId, channelName });
 
         const { data: msgs } = await channelApi.getChannelMessages(currentChannelId);
         setMessages(msgs);
@@ -81,7 +79,6 @@ const ChatPage = () => {
     loadChannel();
   }, [channelName]);
 
-  // 建立 WebSocket
   useEffect(() => {
     if (!channelId || !username) {
       wsRef.current?.disconnect();
@@ -192,7 +189,7 @@ const ChatPage = () => {
 
 const LoginPage = () => {
   const navigate = useNavigate();
-  
+
   const handleLoginSuccess = () => {
     navigate('/chat');
   };
@@ -203,10 +200,34 @@ const LoginPage = () => {
 const App: React.FC = () => {
   const [channelName, setChannelName] = useState('SimpleChat');
   const [username, setUsername] = useState('用户');
-  const navigate = useNavigate(); // 使用导航钩子
-  
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    const token = getToken();
+    if (token) {
+      const fetchUser = async () => {
+        try {
+          const res = await userApi.getCurrentUser();
+          setUsername(res.data.user.username);
+        } catch (err) {
+          antdMessage.error('获取用户信息失败');
+          setUsername('用户');
+          setChannelName('SimpleChat');
+          navigate('/login');
+        }
+      };
+      fetchUser();
+    } else {
+      setUsername('用户');
+      setChannelName('SimpleChat');
+      navigate('/login');
+    }
+  }, [navigate]);
+
   const handleLogout = () => {
     clearToken();
+    setUsername('用户');
+    setChannelName('SimpleChat');
     navigate('/login');
   };
 

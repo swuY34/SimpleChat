@@ -1,4 +1,3 @@
-// components/Sidebar/index.tsx
 import React, { useState, useEffect } from 'react';
 import { Layout, Menu, Modal, Input, theme, message as antdMessage } from 'antd';
 import type { MenuProps } from 'antd';
@@ -8,7 +7,9 @@ import {
   InfoCircleOutlined,
 } from '@ant-design/icons';
 
-import { channelApi } from '../../api/channelApi'; // 你的频道接口
+import { channelApi } from '../../api/channelApi';
+import { userApi } from '../../api/userApi';
+import { getToken } from '../../utils/token';
 
 const { Sider } = Layout;
 
@@ -31,11 +32,10 @@ function getItem(
 interface SidebarProps {
   collapsed: boolean;
   onChannelChange?: (name: string) => void;
+  currentUserId: string | null;
 }
 
-const USER_ID = 'demo-user-id'; // 请改成登录后真实用户ID
-
-const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
+const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange, currentUserId }) => {
   const {
     token: { colorBgContainer },
   } = theme.useToken();
@@ -44,35 +44,60 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
   const [channelNames, setChannelNames] = useState<{ [key: string]: string }>({});
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newChannelName, setNewChannelName] = useState('');
-  const [selectedKey, setSelectedKey] = useState<string>(''); // 选中的菜单 key
+  const [selectedKey, setSelectedKey] = useState<string>('');
+  const [loading, setLoading] = useState(false);
 
-  // 取用户频道列表
   useEffect(() => {
     async function fetchChannels() {
+      if (!currentUserId) {
+        setChannels([]);
+        setChannelNames({});
+        setSelectedKey('');
+        onChannelChange?.('SimpleChat');
+        return;
+      }
+
       try {
-        const { data } = await channelApi.getUserChannels(USER_ID);
+        setLoading(true);
+        const { data } = await channelApi.getUserChannels(currentUserId);
         setChannels(data.map((ch) => ch.channelId));
-        // 建立 channelId -> name 映射，方便菜单显示
+
         const map: { [key: string]: string } = {};
         data.forEach((ch) => (map[ch.channelId] = ch.channelName));
         setChannelNames(map);
-        if (data.length > 0) {
-          setSelectedKey(data[0].channelId);
-          onChannelChange?.(data[0].channelName);
-        }
-      } catch {
+
+        // Remove automatic selection of the first channel
+        setSelectedKey('');
+        onChannelChange?.('SimpleChat');
+      } catch (error) {
+        console.error('获取频道列表失败:', error);
         setChannels([]);
+        setChannelNames({});
+        setSelectedKey('');
         antdMessage.error('获取频道列表失败');
+        onChannelChange?.('SimpleChat');
+      } finally {
+        setLoading(false);
       }
     }
+
     fetchChannels();
-  }, [onChannelChange]);
+  }, [currentUserId, onChannelChange]);
 
   const handleAddChannel = () => {
+    if (!currentUserId) {
+      antdMessage.error('请先登录以添加频道');
+      return;
+    }
     setIsModalOpen(true);
   };
 
   const handleOk = async () => {
+    if (!currentUserId) {
+      antdMessage.error('用户未登录，无法添加频道');
+      return;
+    }
+
     const trimmed = newChannelName.trim();
     if (!trimmed) {
       antdMessage.warning('频道名称不能为空');
@@ -80,37 +105,30 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
     }
 
     try {
-      // 先判断是否已有同名频道
-      let existChannel = Object.entries(channelNames).find(
-        ([, name]) => name === trimmed,
-      );
-      let channelId = existChannel ? existChannel[0] : null;
+      setLoading(true);
+      const { data: channel } = await channelApi.joinChannel({
+        userId: currentUserId,
+        channelName: trimmed,
+      });
 
-      if (!channelId) {
-        // 创建并加入频道
-        const { data: created } = await channelApi.createChannel({ channelName: trimmed, userId: USER_ID });
-        channelId = created.channelId;
-      } else {
-        // 加入频道
-        await channelApi.joinChannel(channelId, { userId: USER_ID, channelName: trimmed });
-      }
-
-      // 刷新频道列表
-      const { data } = await channelApi.getUserChannels(USER_ID);
+      const { data } = await channelApi.getUserChannels(currentUserId);
       setChannels(data.map((ch) => ch.channelId));
-      const map: { [key: string]: string } = {};
-      data.forEach((ch) => (map[ch.channelId] = ch.channelName));
-      setChannelNames(map);
 
-      // 选中新频道
-      setSelectedKey(channelId);
-      onChannelChange?.(channelNames[channelId] || trimmed);
+      const newMap: { [key: string]: string } = {};
+      data.forEach((ch) => (newMap[ch.channelId] = ch.channelName));
+      setChannelNames(newMap);
+
+      setSelectedKey(channel.channelId);
+      onChannelChange?.(channel.channelName);
 
       setIsModalOpen(false);
       setNewChannelName('');
       antdMessage.success(`已加入频道「${trimmed}」`);
-    } catch {
-      antdMessage.error('加入频道失败');
+    } catch (error) {
+      antdMessage.error('加入频道失败: ' + (error as any).message);
+      console.error('加入频道失败:', error);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -141,7 +159,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
         style={{ background: colorBgContainer }}
         className="flex flex-col h-full border-r border-gray-200"
       >
-        {/* 顶部 Logo */}
         <div className="p-4 flex items-center justify-center h-16">
           {!collapsed ? (
             <h1 className="text-xl font-bold">SimpleChat</h1>
@@ -150,7 +167,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
           )}
         </div>
 
-        {/* 添加频道 */}
         <Menu
           theme="light"
           mode="inline"
@@ -168,7 +184,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
           ]}
         />
 
-        {/* 频道列表 */}
         <div className="channel-list flex-1 h-2/3 min-h-0">
           <Menu
             theme="light"
@@ -191,7 +206,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
           />
         </div>
 
-        {/* 底部“关于我们” */}
         <div className="border-t shrink-0 mb-7">
           <Menu
             theme="light"
@@ -212,7 +226,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
         </div>
       </Sider>
 
-      {/* 添加频道弹窗 */}
       <Modal
         title="添加频道"
         open={isModalOpen}
@@ -220,6 +233,7 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange }) => {
         onCancel={handleCancel}
         okText="加入"
         cancelText="取消"
+        confirmLoading={loading}
       >
         <Input
           placeholder="请输入频道名称"

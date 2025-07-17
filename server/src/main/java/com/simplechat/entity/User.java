@@ -30,9 +30,6 @@ public class User implements Serializable {
     @Column(updatable = false)
     private LocalDateTime createdAt;
 
-    @OneToMany(mappedBy = "user", cascade = CascadeType.ALL, orphanRemoval = true)
-    private Set<ChannelMember> channelMembers = new HashSet<>();
-
     @OneToMany(mappedBy = "sender", cascade = CascadeType.ALL, orphanRemoval = true)
     private Set<Message> sentMessages = new HashSet<>();
 
