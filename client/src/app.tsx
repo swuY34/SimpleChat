@@ -8,8 +8,6 @@ import ChatPage from './components/ChatPage';
 import { userApi } from './api/userApi';
 import './globalStyle/global.css';
 
-
-
 const LoginPage = () => {
   const navigate = useNavigate();
 
@@ -21,7 +19,10 @@ const LoginPage = () => {
 };
 
 const App: React.FC = () => {
-  const [channelName, setChannelName] = useState('SimpleChat');
+  const [channelInfo, setChannelInfo] = useState({
+    channelId: null,
+    channelName: 'SimpleChat'
+  });
   const [username, setUsername] = useState('用户');
   const navigate = useNavigate();
 
@@ -35,14 +36,20 @@ const App: React.FC = () => {
         } catch (err) {
           antdMessage.error('获取用户信息失败');
           setUsername('用户');
-          setChannelName('SimpleChat');
+          setChannelInfo({
+            channelId: null,
+            channelName: 'SimpleChat'
+          });
           navigate('/login');
         }
       };
       fetchUser();
     } else {
       setUsername('用户');
-      setChannelName('SimpleChat');
+      setChannelInfo({
+        channelId: null,
+        channelName: 'SimpleChat'
+      });
       navigate('/login');
     }
   }, [navigate]);
@@ -50,14 +57,17 @@ const App: React.FC = () => {
   const handleLogout = () => {
     clearToken();
     setUsername('用户');
-    setChannelName('SimpleChat');
+    setChannelInfo({
+      channelId: null,
+      channelName: 'SimpleChat'
+    });
     navigate('/login');
   };
 
   return (
     <AppLayout
-      channelName={channelName}
-      onChannelChange={setChannelName}
+      channelInfo={channelInfo}
+      onChannelChange={setChannelInfo}
       username={username}
       onLogout={handleLogout}
     >
@@ -65,13 +75,12 @@ const App: React.FC = () => {
         <Route path="/login" element={<LoginPage />} />
         <Route 
           path="/chat" 
-          element={<ChatPage channelName={channelName} />} 
+          element={<ChatPage channelInfo={channelInfo} />} 
         />
         <Route path="*" element={<Navigate to="/chat" replace />} />
       </Routes>
     </AppLayout>
   );
 };
-
 
 export default App;

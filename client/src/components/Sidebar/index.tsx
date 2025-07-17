@@ -6,7 +6,6 @@ import {
   UnorderedListOutlined,
   InfoCircleOutlined,
 } from '@ant-design/icons';
-
 import { channelApi } from '../../api/channelApi';
 import { userApi } from '../../api/userApi';
 import { getToken } from '../../utils/token';
@@ -31,7 +30,7 @@ function getItem(
 
 interface SidebarProps {
   collapsed: boolean;
-  onChannelChange?: (name: string) => void;
+  onChannelChange?: (channel: { channelId: string; channelName: string }) => void;
   currentUserId: string | null;
 }
 
@@ -47,14 +46,13 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange, currentUs
   const [selectedKey, setSelectedKey] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
-  // 在 useEffect 中修改这部分代码
   useEffect(() => {
     async function fetchChannels() {
       if (!currentUserId) {
         setChannels([]);
         setChannelNames({});
         setSelectedKey('');
-        return; // 移除了默认打开频道的逻辑
+        return;
       }
 
       try {
@@ -66,7 +64,6 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange, currentUs
         data.forEach((ch) => (map[ch.channelId] = ch.channelName));
         setChannelNames(map);
 
-        // 不再自动选择任何频道
         setSelectedKey('');
       } catch (error) {
         console.error('获取频道列表失败:', error);
@@ -117,7 +114,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange, currentUs
       setChannelNames(newMap);
 
       setSelectedKey(channel.channelId);
-      onChannelChange?.(channel.channelName);
+      onChannelChange?.({
+        channelId: channel.channelId,
+        channelName: channel.channelName
+      });
 
       setIsModalOpen(false);
       setNewChannelName('');
@@ -137,7 +137,10 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange, currentUs
 
   const handleChannelClick = (key: string) => {
     setSelectedKey(key);
-    onChannelChange?.(channelNames[key]);
+    onChannelChange?.({
+      channelId: key,
+      channelName: channelNames[key]
+    });
   };
 
   const channelListItems: MenuItem[] =

@@ -48,6 +48,7 @@ public class UserController {
         // 保存用户
         User saved = userRepository.save(user);
         saved.setPasswordHash(null); // 不返回密码哈希
+        saved.setSentMessages(null); // 不返回这个字段以防数据嵌套
 
         return ResponseEntity.ok(Map.of("success", true, "user", saved));
     }
@@ -71,6 +72,7 @@ public class UserController {
 
         String token = jwtUtil.generateToken(user.getUserId(), Map.of("username", user.getUsername()));
         user.setPasswordHash(null);
+        user.setSentMessages(null);
 
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
@@ -106,6 +108,7 @@ public class UserController {
         User user = optionalUser.get();
         user.setPasswordHash(null);
         user.setEmail(null);
+        user.setSentMessages(null);
         return ResponseEntity.ok(Map.of("success", true, "user", user));
     }
 

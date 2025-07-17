@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Button, theme, Avatar, Dropdown, message, } from 'antd';
+import { Layout, Button, theme, Avatar, Dropdown, message } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   MenuFoldOutlined,
@@ -17,15 +17,18 @@ const { Header, Footer, Content } = Layout;
 
 interface AppLayoutProps {
   children: React.ReactNode;
-  channelName: string;
-  onChannelChange: (name: string) => void;
+  channelInfo: {
+    channelId: string | null;
+    channelName: string;
+  };
+  onChannelChange: (channel: { channelId: string; channelName: string }) => void;
   username: string;
   onLogout: () => void;
 }
 
 const AppLayout: React.FC<AppLayoutProps> = ({
   children,
-  channelName,
+  channelInfo,
   onChannelChange,
   username,
   onLogout,
@@ -131,7 +134,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             onClick={() => setCollapsed(!collapsed)}
             className="!w-13 h-16"
           />
-          <span className="text-lg font-semibold">{channelName}</span>
+          <span className="text-lg font-semibold">{channelInfo.channelName}</span>
           <div className="ml-auto pr-4 mr-6">
             <Dropdown menu={{ items: userMenuItems, onClick: handleMenuClick }} placement="bottomRight">
               <div className="flex items-center cursor-pointer">
