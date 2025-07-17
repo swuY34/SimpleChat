@@ -44,12 +44,23 @@ public class ChatWebSocketController extends TextWebSocketHandler {
     @Override
     public void afterConnectionEstablished(WebSocketSession session) throws Exception {
         String username = getUsernameFromQuery(session.getUri().getQuery());
+        String channelId = getChannelIdFromUri(session.getUri().getPath());
 
         UserSessionDao.UserSession userSession = chatService.authenticateUser(username);
+        userSession.setChannelId(channelId); // 这里设置 channelId
         chatService.addUserSession(session.getId(), userSession);
         sessions.put(session.getId(), session);
 
-        broadcastSystemMessage(userSession.getUsername() + " joined the chat!");
+        broadcastSystemMessage(channelId, userSession.getUsername() + " joined the chat!");
+    }
+
+    private String getChannelIdFromUri(String path) {
+        // 路径格式应该是 "/chat/{channelId}"
+        String[] parts = path.split("/");
+        if (parts.length >= 3) {
+            return parts[2]; // 取第三部分作为 channelId
+        }
+        throw new IllegalArgumentException("Invalid WebSocket path format");
     }
 
     @Override
@@ -89,7 +100,8 @@ public class ChatWebSocketController extends TextWebSocketHandler {
         );
 
         for (WebSocketSession ws : sessions.values()) {
-            if (ws.isOpen()) {
+            UserSessionDao.UserSession wsUserSession = chatService.getUserSession(ws.getId());
+            if (ws.isOpen() && wsUserSession != null && channelId.equals(wsUserSession.getChannelId())) {
                 ws.sendMessage(new TextMessage(jsonResponse));
             }
         }
@@ -99,19 +111,21 @@ public class ChatWebSocketController extends TextWebSocketHandler {
     public void afterConnectionClosed(WebSocketSession session, CloseStatus status) throws Exception {
         UserSessionDao.UserSession userSession = chatService.getUserSession(session.getId());
         if (userSession != null) {
-            broadcastSystemMessage(userSession.getUsername() + " left the chat");
+            String channelId = userSession.getChannelId();
+            broadcastSystemMessage(channelId, userSession.getUsername() + " left the chat");
             chatService.removeUserSession(session.getId());
         }
         sessions.remove(session.getId());
     }
 
-    private void broadcastSystemMessage(String content) throws IOException {
+    private void broadcastSystemMessage(String channelId, String content) throws IOException {
         String messageJson = objectMapper.writeValueAsString(
                 Map.of("type", "SYSTEM", "content", content)
         );
 
         for (WebSocketSession session : sessions.values()) {
-            if (session.isOpen()) {
+            UserSessionDao.UserSession userSession = chatService.getUserSession(session.getId());
+            if (session.isOpen() && userSession != null && channelId.equals(userSession.getChannelId())) {
                 session.sendMessage(new TextMessage(messageJson));
             }
         }

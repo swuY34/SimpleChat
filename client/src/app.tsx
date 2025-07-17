@@ -6,6 +6,19 @@ import { getToken, clearToken } from './utils/token';
 import AppLayout from './components/Layout';
 import ChatPage from './components/ChatPage';
 import { userApi } from './api/userApi';
+import './globalStyle/global.css';
+
+
+
+const LoginPage = () => {
+  const navigate = useNavigate();
+
+  const handleLoginSuccess = () => {
+    navigate('/chat');
+  };
+
+  return <AuthModal open={true} onSuccess={handleLoginSuccess} />;
+};
 
 const App: React.FC = () => {
   const [channelName, setChannelName] = useState('SimpleChat');
@@ -60,14 +73,5 @@ const App: React.FC = () => {
   );
 };
 
-const LoginPage = () => {
-  const navigate = useNavigate();
-
-  const handleLoginSuccess = () => {
-    navigate('/chat');
-  };
-
-  return <AuthModal open={true} onSuccess={handleLoginSuccess} />;
-};
 
 export default App;

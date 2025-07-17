@@ -52,9 +52,10 @@ export class ChatWebSocket {
     };
   }
 
-  sendMessage(content: string) {
+  sendMessage(content: string | object) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
-      this.ws.send(content);
+      const message = typeof content === 'string' ? content : JSON.stringify(content);
+      this.ws.send(message);
     } else {
       throw new Error('WebSocket is not open');
     }

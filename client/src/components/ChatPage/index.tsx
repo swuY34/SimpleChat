@@ -5,8 +5,9 @@ import { channelApi, MessageDTO } from '../../api/channelApi';
 import { userApi } from '../../api/userApi';
 import { getToken } from '../../utils/token';
 import { ChatWebSocket } from '../../api/chatApi';
+import { WS_BASE_URL } from '../../config/config';
 
-const WS_URL = 'ws://localhost:8080/ws/chat';
+const WS_URL = `${WS_BASE_URL}/chat`;
 
 interface ChatPageProps {
   channelName: string;
@@ -42,48 +43,48 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
   useEffect(() => {
     // 处理频道变更逻辑
     async function loadChannel() {
-        if (!username || username === '用户') return;
-        
-        try {
+      if (!username || username === '用户') return;
+
+      try {
         // 获取当前用户ID
         const userId = (await userApi.getCurrentUser()).data.user.userId;
-        
+
         // 直接获取频道信息，不再调用 joinChannel
         const { data: userChannels } = await channelApi.getUserChannels(userId);
         const channel = userChannels.find(ch => ch.channelName === channelName);
-        
+
         if (!channel) {
-            antdMessage.error(`找不到频道: ${channelName}`);
-            return;
+          antdMessage.error(`找不到频道: ${channelName}`);
+          return;
         }
 
         setChannelId(channel.channelId);
-        
+
         // 获取该频道的消息
         const { data: msgs } = await channelApi.getChannelMessages(channel.channelId);
         setMessages(msgs);
-        
+
         // 设置WebSocket
         setupWebSocket(channel.channelId);
-        } catch (error) {
+      } catch (error) {
         antdMessage.error('加载频道失败: ' + (error as any).message);
         setMessages([]);
         setChannelId(null);
-        }
+      }
     }
 
     if (channelName && channelName !== 'SimpleChat') {
-        loadChannel();
+      loadChannel();
     } else {
-        // 默认频道处理
-        if (wsRef.current) {
+      // 默认频道处理
+      if (wsRef.current) {
         wsRef.current.disconnect();
         wsRef.current = null;
-        }
-        setChannelId(null);
-        setMessages([]);
+      }
+      setChannelId(null);
+      setMessages([]);
     }
-    }, [channelName, username]);
+  }, [channelName, username]);
 
   // 提取WebSocket设置逻辑
   const setupWebSocket = (channelId: string) => {
@@ -92,12 +93,15 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
       wsRef.current = null;
     }
 
-    const ws = new ChatWebSocket({ username, url: `${WS_URL}/${channelId}` });
+    const ws = new ChatWebSocket({
+      username,
+      url: `${WS_URL}/${channelId}`
+    });
     ws.connect();
 
     ws.onSystemMessage((content) => {
       setMessages(prev => [...prev, {
-        messageId: -1,
+        messageId: Date.now(),
         sender: '系统',
         content,
         timestamp: new Date().toISOString(),
@@ -117,17 +121,20 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
     });
 
     wsRef.current = ws;
-
-    return () => {
-      ws.disconnect();
-    };
   };
 
   const handleSendMessage = () => {
-    if (!message.trim() || !wsRef.current) return;
+    if (!message.trim() || !wsRef.current || !channelId) return;
 
     try {
-      wsRef.current.sendMessage(message.trim());
+      // 构造完整的消息对象
+      const messageObj = {
+        type: "CHAT",
+        content: message.trim(),
+        channelId: channelId
+      };
+
+      wsRef.current.sendMessage(JSON.stringify(messageObj));
       setMessage('');
     } catch {
       antdMessage.error('消息发送失败');

@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Layout, Button, theme, Avatar, Dropdown, message } from 'antd';
+import { Layout, Button, theme, Avatar, Dropdown, message, } from 'antd';
 import type { MenuProps } from 'antd';
 import {
   MenuFoldOutlined,
@@ -13,7 +13,7 @@ import Sidebar from '../Sidebar';
 import { userApi } from '../../api/userApi';
 import { getToken, clearToken } from '../../utils/token';
 
-const { Header, Content } = Layout;
+const { Header, Footer, Content } = Layout;
 
 interface AppLayoutProps {
   children: React.ReactNode;
@@ -110,7 +110,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   ];
 
   return (
-    <Layout hasSider className="h-screen overflow-visible">
+    <Layout hasSider className="efagaegaeg h-screen overflow-visible">
       <Sidebar
         key={sidebarKey}
         collapsed={collapsed}
@@ -141,7 +141,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
             </Dropdown>
           </div>
         </Header>
-        <Content className="flex-1 m-4 p-6 bg-white rounded-lg overflow-auto">{children}</Content>
+        <Content className="flex-1 m-4 mt-3 mb-8 p-6 bg-white rounded-lg overflow-auto">{children}</Content>
       </Layout>
     </Layout>
   );
