@@ -18,8 +18,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
   const [messages, setMessages] = useState<MessageDTO[]>([]);
   const [message, setMessage] = useState('');
   const [username, setUsername] = useState<string>('用户');
+  const [userId, setUserId] = useState<string | null>(null);
+  const [connectionStatus, setConnectionStatus] = useState<'disconnected' | 'connecting' | 'connected'>('disconnected');
   const wsRef = useRef<ChatWebSocket | null>(null);
 
+  // 获取当前用户信息
   useEffect(() => {
     const token = getToken();
     if (!token) {
@@ -27,29 +30,26 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
       return;
     }
 
-    async function fetchUser() {
+    const fetchUser = async () => {
       try {
         const res = await userApi.getCurrentUser();
         setUsername(res.data.user.username);
+        setUserId(res.data.user.userId);
       } catch (err) {
         antdMessage.error('获取用户信息失败');
         setUsername('用户');
       }
-    }
+    };
 
     fetchUser();
   }, []);
 
+  // 处理频道变更
   useEffect(() => {
-    // 处理频道变更逻辑
-    async function loadChannel() {
-      if (!username || username === '用户') return;
+    const loadChannel = async () => {
+      if (!userId) return;
 
       try {
-        // 获取当前用户ID
-        const userId = (await userApi.getCurrentUser()).data.user.userId;
-
-        // 直接获取频道信息，不再调用 joinChannel
         const { data: userChannels } = await channelApi.getUserChannels(userId);
         const channel = userChannels.find(ch => ch.channelName === channelName);
 
@@ -60,44 +60,57 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
 
         setChannelId(channel.channelId);
 
-        // 获取该频道的消息
+        // 获取频道消息历史
         const { data: msgs } = await channelApi.getChannelMessages(channel.channelId);
         setMessages(msgs);
 
-        // 设置WebSocket
+        // 初始化WebSocket连接
         setupWebSocket(channel.channelId);
       } catch (error) {
+        console.error('加载频道失败:', error);
         antdMessage.error('加载频道失败: ' + (error as any).message);
         setMessages([]);
         setChannelId(null);
+        setConnectionStatus('disconnected');
       }
-    }
+    };
 
     if (channelName && channelName !== 'SimpleChat') {
       loadChannel();
     } else {
-      // 默认频道处理
-      if (wsRef.current) {
-        wsRef.current.disconnect();
-        wsRef.current = null;
-      }
+      disconnectWebSocket();
       setChannelId(null);
       setMessages([]);
     }
-  }, [channelName, username]);
 
-  // 提取WebSocket设置逻辑
+    return () => {
+      disconnectWebSocket();
+    };
+  }, [channelName, userId]);
+
+  // 设置WebSocket连接
   const setupWebSocket = (channelId: string) => {
-    if (wsRef.current) {
-      wsRef.current.disconnect();
-      wsRef.current = null;
-    }
+    disconnectWebSocket();
+    setConnectionStatus('connecting');
 
     const ws = new ChatWebSocket({
       username,
       url: `${WS_URL}/${channelId}`
     });
+
     ws.connect();
+
+    ws.onOpen(() => {
+      console.log('WebSocket连接成功');
+      setConnectionStatus('connected');
+      antdMessage.success('已连接到聊天服务器');
+    });
+
+    ws.onError(() => {
+      console.error('WebSocket连接错误');
+      setConnectionStatus('disconnected');
+      antdMessage.error('连接失败');
+    });
 
     ws.onSystemMessage((content) => {
       setMessages(prev => [...prev, {
@@ -121,22 +134,51 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
     });
 
     wsRef.current = ws;
+
+    // 添加超时检查
+    const timeout = setTimeout(() => {
+      if (connectionStatus === 'connecting') {
+        antdMessage.warning('连接超时，请检查网络');
+        setConnectionStatus('disconnected');
+      }
+    }, 5000);
+
+    return () => clearTimeout(timeout);
   };
 
+  // 断开WebSocket连接
+  const disconnectWebSocket = () => {
+    if (wsRef.current) {
+      wsRef.current.disconnect();
+      wsRef.current = null;
+      setConnectionStatus('disconnected');
+    }
+  };
+
+  // 发送消息处理
   const handleSendMessage = () => {
-    if (!message.trim() || !wsRef.current || !channelId) return;
+    if (!message.trim()) {
+      antdMessage.warning('消息不能为空');
+      return;
+    }
+    
+    if (!wsRef.current || connectionStatus !== 'connected' || !channelId) {
+      antdMessage.error('未连接到聊天服务器');
+      return;
+    }
 
     try {
-      // 构造完整的消息对象
       const messageObj = {
         type: "CHAT",
         content: message.trim(),
-        channelId: channelId
+        channelId: channelId,
+        sender: username
       };
 
-      wsRef.current.sendMessage(JSON.stringify(messageObj));
+      wsRef.current.sendMessage(messageObj);
       setMessage('');
-    } catch {
+    } catch (error) {
+      console.error('消息发送失败:', error);
       antdMessage.error('消息发送失败');
     }
   };
@@ -186,9 +228,11 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelName }) => {
                   type="primary"
                   className="!px-6 !py-1.5"
                   onClick={handleSendMessage}
-                  disabled={!message.trim()}
+                  disabled={!message.trim() || connectionStatus !== 'connected'}
+                  loading={connectionStatus === 'connecting'}
                 >
-                  发送
+                  {connectionStatus === 'connected' ? '发送' : 
+                   connectionStatus === 'connecting' ? '连接中...' : '未连接'}
                 </Button>
               </div>
             </div>

@@ -17,6 +17,8 @@ export class ChatWebSocket {
   private readonly url: string;
   private systemListeners: Listener<SystemMessage>[] = [];
   private chatListeners: Listener<ChatMessage>[] = [];
+  private openListeners: Listener<Event>[] = [];
+  private errorListeners: Listener<Event>[] = [];
 
   constructor(params: { username: string; url: string }) {
     this.username = params.username;
@@ -24,10 +26,13 @@ export class ChatWebSocket {
   }
 
   connect() {
-    this.ws = new WebSocket(`${this.url}?username=${encodeURIComponent(this.username)}`);
+    const fullUrl = `${this.url}?username=${encodeURIComponent(this.username)}`;
+    console.log('Connecting to WebSocket:', fullUrl);
+    this.ws = new WebSocket(fullUrl);
 
-    this.ws.onopen = () => {
+    this.ws.onopen = (event) => {
       console.log('WebSocket connected');
+      this.openListeners.forEach(cb => cb(event));
     };
 
     this.ws.onmessage = (event: MessageEvent<string>) => {
@@ -47,14 +52,16 @@ export class ChatWebSocket {
       console.log('WebSocket disconnected');
     };
 
-    this.ws.onerror = (err) => {
-      console.error('WebSocket error:', err);
+    this.ws.onerror = (event) => {
+      console.error('WebSocket error:', event);
+      this.errorListeners.forEach(cb => cb(event));
     };
   }
 
   sendMessage(content: string | object) {
     if (this.ws && this.ws.readyState === WebSocket.OPEN) {
       const message = typeof content === 'string' ? content : JSON.stringify(content);
+      console.log('Sending message:', message);
       this.ws.send(message);
     } else {
       throw new Error('WebSocket is not open');
@@ -69,8 +76,19 @@ export class ChatWebSocket {
     this.chatListeners.push(cb);
   }
 
+  onOpen(cb: Listener<Event>) {
+    this.openListeners.push(cb);
+  }
+
+  onError(cb: Listener<Event>) {
+    this.errorListeners.push(cb);
+  }
+
   disconnect() {
-    this.ws?.close();
-    this.ws = null;
+    if (this.ws) {
+      console.log('Disconnecting WebSocket');
+      this.ws.close();
+      this.ws = null;
+    }
   }
 }
