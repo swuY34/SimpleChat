@@ -55,7 +55,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelInfo }) => {
         setMessages(msgs);
         setupWebSocket(channelId);
       } catch (error) {
-        console.error('加载频道feafaefaef失败:', error);
+        console.error('加载频道失败:', error);
         antdMessage.error('加载频道失败: ' + (error as any).message);
         setMessages([]);
         setConnectionStatus('disconnected');
