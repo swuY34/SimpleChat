@@ -47,14 +47,14 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange, currentUs
   const [selectedKey, setSelectedKey] = useState<string>('');
   const [loading, setLoading] = useState(false);
 
+  // 在 useEffect 中修改这部分代码
   useEffect(() => {
     async function fetchChannels() {
       if (!currentUserId) {
         setChannels([]);
         setChannelNames({});
         setSelectedKey('');
-        onChannelChange?.('SimpleChat');
-        return;
+        return; // 移除了默认打开频道的逻辑
       }
 
       try {
@@ -66,23 +66,21 @@ const Sidebar: React.FC<SidebarProps> = ({ collapsed, onChannelChange, currentUs
         data.forEach((ch) => (map[ch.channelId] = ch.channelName));
         setChannelNames(map);
 
-        // Remove automatic selection of the first channel
+        // 不再自动选择任何频道
         setSelectedKey('');
-        onChannelChange?.('SimpleChat');
       } catch (error) {
         console.error('获取频道列表失败:', error);
         setChannels([]);
         setChannelNames({});
         setSelectedKey('');
         antdMessage.error('获取频道列表失败');
-        onChannelChange?.('SimpleChat');
       } finally {
         setLoading(false);
       }
     }
 
     fetchChannels();
-  }, [currentUserId, onChannelChange]);
+  }, [currentUserId]);
 
   const handleAddChannel = () => {
     if (!currentUserId) {

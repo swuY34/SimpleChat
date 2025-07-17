@@ -1,4 +1,3 @@
-// AppLayout.tsx
 import React, { useState, useEffect } from 'react';
 import { Layout, Button, theme, Avatar, Dropdown, message } from 'antd';
 import type { MenuProps } from 'antd';
@@ -36,7 +35,7 @@ const AppLayout: React.FC<AppLayoutProps> = ({
   const [sidebarKey, setSidebarKey] = useState(0);
 
   const {
-    token: { colorBgContainer = '#fff' }, // Fallback to '#fff' if colorBgContainer is undefined
+    token: { colorBgContainer = '#fff' },
   } = theme.useToken();
 
   useEffect(() => {
