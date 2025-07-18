@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Button, message as antdMessage } from 'antd';
 import MessageBubble from '../MessageBubble';
-import { channelApi, MessageDTO } from '../../api/channelApi';
+import { channelApi } from '../../api/channelApi';
+import { messageApi, MessageDTO } from '../../api/messageApi';
 import { userApi } from '../../api/userApi';
 import { getToken } from '../../utils/token';
 import { ChatWebSocket } from '../../api/chatApi';
@@ -51,7 +52,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelInfo }) => {
       if (!channelId || !userId) return;
 
       try {
-        const { data: msgs } = await channelApi.getChannelMessages(channelId);
+        const { data: msgs } = await messageApi.getChannelMessages(channelId);
         setMessages(msgs);
         setupWebSocket(channelId);
       } catch (error) {
@@ -97,14 +98,14 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelInfo }) => {
       antdMessage.error('连接失败');
     });
 
-    ws.onSystemMessage((content) => {
-      setMessages(prev => [...prev, {
-        messageId: Date.now(),
-        sender: '系统',
-        content,
-        timestamp: new Date().toISOString(),
-      }]);
-    });
+    // ws.onSystemMessage((content) => {
+    //   setMessages(prev => [...prev, {
+    //     messageId: Date.now(),
+    //     sender: '系统',
+    //     content,
+    //     timestamp: new Date().toISOString(),
+    //   }]);
+    // });
 
     ws.onChatMessage(({ sender, content }) => {
       setMessages(prev => [
@@ -116,6 +117,7 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelInfo }) => {
           timestamp: new Date().toISOString(),
         },
       ]);
+
     });
 
     wsRef.current = ws;
@@ -143,13 +145,24 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelInfo }) => {
       antdMessage.warning('消息不能为空');
       return;
     }
-    
+
     if (!wsRef.current || connectionStatus !== 'connected' || !channelId) {
       antdMessage.error('未连接到聊天服务器');
       return;
     }
 
     try {
+      const newMessage = {
+        messageId: Date.now(), // 临时ID，服务器返回后会替换
+        sender: username,
+        content: message.trim(),
+        timestamp: new Date().toISOString(),
+      };
+
+      // 乐观更新：立即显示自己的消息
+      setMessages(prev => [...prev, newMessage]);
+      setMessage('');
+
       const messageObj = {
         type: "CHAT",
         content: message.trim(),
@@ -158,10 +171,12 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelInfo }) => {
       };
 
       wsRef.current.sendMessage(messageObj);
-      setMessage('');
+
     } catch (error) {
       console.error('消息发送失败:', error);
       antdMessage.error('消息发送失败');
+      // 可选：如果发送失败，可以移除乐观更新的消息
+      // setMessages(prev => prev.filter(msg => msg.messageId !== newMessage.messageId));
     }
   };
 
@@ -213,8 +228,8 @@ const ChatPage: React.FC<ChatPageProps> = ({ channelInfo }) => {
                   disabled={!message.trim() || connectionStatus !== 'connected'}
                   loading={connectionStatus === 'connecting'}
                 >
-                  {connectionStatus === 'connected' ? '发送' : 
-                   connectionStatus === 'connecting' ? '连接中...' : '未连接'}
+                  {connectionStatus === 'connected' ? '发送' :
+                    connectionStatus === 'connecting' ? '连接中...' : '未连接'}
                 </Button>
               </div>
             </div>

@@ -1,6 +1,7 @@
 import { app, BrowserWindow, ipcMain, IpcMainInvokeEvent, session } from 'electron';
 import path from 'path';
 import { promises as fs } from 'fs';
+import { spawn } from 'child_process';
 
 declare const MAIN_WINDOW_WEBPACK_ENTRY: string;
 declare const MAIN_WINDOW_PRELOAD_WEBPACK_ENTRY: string;
@@ -110,3 +111,70 @@ app.on('activate', () => {
     createWindow();
   }
 });
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+import os from 'os';
+import { mkdirSync, readdirSync, writeFileSync, unlinkSync, existsSync } from 'fs';
+import { join } from 'path';
+
+const MAX_INSTANCES = 2;
+const INSTANCE_DIR = join(os.tmpdir(), 'simple-chat-instances');
+
+// 确保目录存在
+mkdirSync(INSTANCE_DIR, { recursive: true });
+
+// 清理无效的 pid 文件
+const cleanDeadInstances = () => {
+  const files = readdirSync(INSTANCE_DIR);
+  for (const file of files) {
+    const pid = parseInt(file.replace('.lock', ''));
+    if (!isNaN(pid)) {
+      try {
+        process.kill(pid, 0); // 检查是否活着
+      } catch {
+        try {
+          unlinkSync(join(INSTANCE_DIR, file));
+        } catch {}
+      }
+    }
+  }
+};
+
+cleanDeadInstances();
+const existingInstances = readdirSync(INSTANCE_DIR).length;
+
+// 注册当前实例
+const pidFile = join(INSTANCE_DIR, `${process.pid}.lock`);
+if (!existsSync(pidFile)) {
+  writeFileSync(pidFile, '');
+  process.on('exit', () => {
+    try {
+      unlinkSync(pidFile);
+    } catch {}
+  });
+}
+
+// 如果实例数少于 3，就再启动一个新实例
+if (existingInstances < MAX_INSTANCES - 1) {
+  spawn(process.execPath, [app.getAppPath()], {
+    detached: true,
+    stdio: 'ignore'
+  }).unref();
+}

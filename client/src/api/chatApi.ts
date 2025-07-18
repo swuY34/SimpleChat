@@ -1,4 +1,5 @@
 export type ChatMessage = {
+  type: string;
   sender: string;
   content: string;
 };
@@ -41,7 +42,7 @@ export class ChatWebSocket {
         if (data.type === 'SYSTEM') {
           this.systemListeners.forEach(cb => cb(data.content));
         } else if (data.type === 'CHAT') {
-          this.chatListeners.forEach(cb => cb({ sender: data.sender, content: data.content }));
+          this.chatListeners.forEach(cb => cb({ type: data.type, sender: data.sender, content: data.content }));
         }
       } catch (error) {
         console.error('Invalid WebSocket message:', event.data);

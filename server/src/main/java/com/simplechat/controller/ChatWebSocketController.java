@@ -101,8 +101,30 @@ public class ChatWebSocketController extends TextWebSocketHandler {
 
         for (WebSocketSession ws : sessions.values()) {
             UserSessionDao.UserSession wsUserSession = chatService.getUserSession(ws.getId());
-            if (ws.isOpen() && wsUserSession != null && channelId.equals(wsUserSession.getChannelId())) {
+            System.out.println(ws);
+            System.out.println("检查会话: " + ws.getId());
+
+            if (wsUserSession == null) {
+                System.out.println("⚠️ 会话无用户信息: " + ws.getId());
+                continue;
+            }
+
+            if (!ws.isOpen()) {
+                System.out.println("⚠️ 会话已关闭: " + ws.getId());
+                continue;
+            }
+
+            if (!channelId.equals(wsUserSession.getChannelId())) {
+                System.out.println("⚠️ 会话不在目标频道: " + ws.getId() +
+                        " (实际频道: " + wsUserSession.getChannelId() + ")");
+                continue;
+            }
+
+            try {
                 ws.sendMessage(new TextMessage(jsonResponse));
+                System.out.println("✅ 成功发送消息到会话: " + ws.getId());
+            } catch (IOException e) {
+                System.out.println("❌ 发送失败: " + ws.getId() + " - " + e.getMessage());
             }
         }
     }

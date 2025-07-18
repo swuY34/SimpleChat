@@ -26,13 +26,6 @@ interface ChannelSummary {
   channelName: string;
 }
 
-export interface MessageDTO {
-  messageId: number | string;
-  sender: string;
-  content: string;
-  timestamp: string;
-}
-
 const baseUrl = `${API_BASE_URL}/channels`;
 
 export const channelApi = {
@@ -52,7 +45,4 @@ export const channelApi = {
 
   getUserChannels: (userId: string): Promise<AxiosResponse<ChannelSummary[]>> =>
     axios.get(`${API_BASE_URL}/users/${userId}/channels`),
-
-  getChannelMessages: (channelId: string): Promise<AxiosResponse<MessageDTO[]>> =>
-    axios.get(`${baseUrl}/${channelId}/messages`),
 };
